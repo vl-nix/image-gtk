@@ -32,6 +32,7 @@ const char *icons[BAL] =
 	[BHR] = "object-flip-horizontal", 
 
 	/*[BPR] = "gtk-preferences", */
+	[BIF] = "dialog-info", 
 	[BFT] = "zoom-fit-best", 
 	[BOR] = "zoom-original", 
 	[BMN] = "zoom-out", 
@@ -64,6 +65,28 @@ static void bar_signal_hide_play_stop ( GtkButton *button_h, GtkButton *button_s
 	gtk_widget_set_visible ( GTK_WIDGET ( button_h ), FALSE );
 }
 
+static GtkImage * bar_create_image ( const char *icon, uint8_t size )
+{
+	GdkPixbuf *pixbuf = gtk_icon_theme_load_icon ( gtk_icon_theme_get_default (), icon, size, GTK_ICON_LOOKUP_FORCE_SIZE, NULL );
+
+	GtkImage *image   = (GtkImage *)gtk_image_new_from_pixbuf ( pixbuf );
+	gtk_image_set_pixel_size ( image, size );
+
+	if ( pixbuf ) g_object_unref ( pixbuf );
+
+	return image;
+}
+
+static GtkButton * bar_button_set_image ( const char *icon, uint8_t size )
+{
+	GtkButton *button = (GtkButton *)gtk_button_new ();
+
+	GtkImage *image   = bar_create_image ( icon, size );
+	gtk_button_set_image ( button, GTK_WIDGET ( image ) );
+
+	return button;
+}
+
 static void bar_create ( Bar *bar )
 {
 	bar->label = (GtkLabel *)gtk_label_new ( "" );
@@ -71,7 +94,7 @@ static void bar_create ( Bar *bar )
 
 	enum b_num c = BUP; for ( c = BUP; c < BFT; c++ )
 	{
-		bar->buttons[c] = (GtkButton *)gtk_button_new_from_icon_name ( icons[c], GTK_ICON_SIZE_MENU );
+		bar->buttons[c] = bar_button_set_image ( icons[c], 16 ); // (GtkButton *)gtk_button_new_from_icon_name ( icons[c], GTK_ICON_SIZE_MENU );
 
 		gtk_button_set_relief ( bar->buttons[c], GTK_RELIEF_NONE );
 		gtk_widget_set_visible ( GTK_WIDGET ( bar->buttons[c] ), ( c == 4 ) ? FALSE : TRUE );
@@ -91,7 +114,7 @@ static void bar_create ( Bar *bar )
 
 	for ( c = BFT; c < BAL; c++ )
 	{
-		bar->buttons[c] = (GtkButton *)gtk_button_new_from_icon_name ( icons[c], GTK_ICON_SIZE_MENU );
+		bar->buttons[c] = bar_button_set_image ( icons[c], 16 ); // (GtkButton *)gtk_button_new_from_icon_name ( icons[c], GTK_ICON_SIZE_MENU );
 
 		gtk_button_set_relief ( bar->buttons[c], GTK_RELIEF_NONE );
 		gtk_widget_set_visible ( GTK_WIDGET ( bar->buttons[c] ), TRUE );

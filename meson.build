@@ -1,4 +1,4 @@
-project('image-gtk', 'c', version: '21.0', meson_version: '>= 0.50.0', default_options: [ 'warning_level=2', 'c_std=gnu11'])
+project('image-gtk', 'c', version: '21.9', meson_version: '>= 0.50.0', default_options: [ 'warning_level=2', 'c_std=gnu11'])
 
 cc = meson.get_compiler('c')
 

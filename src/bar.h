@@ -13,7 +13,7 @@
 
 enum b_num
 {
-	BUP, BCK, BFW, BST, BSP, BLT, BRT, BVR, BHR, /*BPR, */BFT, BOR, BMN, BPL, BAL
+	BUP, BCK, BFW, BST, BSP, BLT, BRT, BVR, BHR, /*BPR, */BIF, BFT, BOR, BMN, BPL, BAL
 };
 
 #define BAR_TYPE_BOX bar_get_type ()

@@ -49,6 +49,29 @@ static void image_win_fit ( ImageWin * );
 static void image_win_org ( ImageWin * );
 static void image_win_run_play ( ImageWin * );
 
+static void image_win_about ( GtkWindow *window )
+{
+	GtkAboutDialog *dialog = (GtkAboutDialog *)gtk_about_dialog_new ();
+	gtk_window_set_transient_for ( GTK_WINDOW ( dialog ), window );
+
+	gtk_about_dialog_set_logo_icon_name ( dialog, "image" );
+	gtk_window_set_icon_name ( GTK_WINDOW ( dialog ), "image" );
+	gtk_widget_set_opacity   ( GTK_WIDGET ( dialog ), gtk_widget_get_opacity ( GTK_WIDGET ( window ) ) );
+
+	const char *authors[] = { "Stepan Perun", " ", NULL };
+
+	gtk_about_dialog_set_program_name ( dialog, "Image-Gtk" );
+	gtk_about_dialog_set_version ( dialog, VERSION );
+	gtk_about_dialog_set_license_type ( dialog, GTK_LICENSE_GPL_3_0 );
+	gtk_about_dialog_set_authors ( dialog, authors );
+	gtk_about_dialog_set_website ( dialog,   "https://github.com/vl-nix/image-gtk" );
+	gtk_about_dialog_set_copyright ( dialog, "Copyright 2021 Image-Gtk" );
+	gtk_about_dialog_set_comments  ( dialog, "Lightweight picture viewer" );
+
+	gtk_dialog_run ( GTK_DIALOG (dialog) );
+	gtk_widget_destroy ( GTK_WIDGET (dialog) );
+}
+
 static void image_win_changed_timeout ( GtkSpinButton *button, ImageWin *win )
 {
 	gtk_spin_button_update ( button );
@@ -359,6 +382,11 @@ static void image_win_icon_minus ( ImageWin *win )
 	g_signal_emit_by_name ( win->icon, "icon-set-size",  win->path, FALSE );
 }
 
+static void image_win_info ( ImageWin *win )
+{
+	image_win_about ( GTK_WINDOW ( win ) );
+}
+
 /*
 static void image_win_pref ( ImageWin *win )
 {
@@ -368,7 +396,8 @@ static void image_win_pref ( ImageWin *win )
 
 static void image_win_signal_name_bar ( G_GNUC_UNUSED Bar *bar, uint8_t num, ImageWin *win )
 {
-	if ( num == BUP ) image_win_up   ( win );
+	if ( num == BUP ) { image_win_up   ( win ); return; }
+	if ( num == BIF ) { image_win_info ( win ); return; }
 
 	gboolean vis = gtk_widget_get_visible ( GTK_WIDGET ( win->icon ) );
 
@@ -382,7 +411,7 @@ static void image_win_signal_name_bar ( G_GNUC_UNUSED Bar *bar, uint8_t num, Ima
 	win->press_event = FALSE;
 
 	fp funcs[] = { image_win_up, image_win_back, image_win_forward, image_win_play, image_win_stop, image_win_left, image_win_right, 
-		image_win_vertical, image_win_horizont, /*image_win_pref, */image_win_fit, image_win_org, image_win_out, image_win_in };
+		image_win_vertical, image_win_horizont, /*image_win_pref, */image_win_info, image_win_fit, image_win_org, image_win_out, image_win_in };
 
 	if ( funcs[num] ) funcs[num] ( win );
 }
