@@ -1,4 +1,4 @@
-### [Image](https://github.com/vl-nix/image-gtk)
+### [Image-Gtk](https://github.com/vl-nix/image-gtk)
 
 * Lightweight picture viewer
 * Drag and Drop: files, folders
