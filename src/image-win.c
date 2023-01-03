@@ -83,14 +83,14 @@ struct _ButtonIcon
 
 const ButtonIcon button_icon_n[] =
 {
-	{ BUP, 	 "go-up" },
-	{ BPR, 	 "go-previous" },
-	{ BNX, 	 "go-next" },
-	{ BST, 	 "media-playback-start" },
+	{ BUP, "go-up"       },
+	{ BPR, "go-previous" },
+	{ BNX, "go-next"     },
+	{ BST, "media-playback-start"   },
 
-	{ BLT, "object-rotate-left" },
-	{ BRT, "object-rotate-right" },
-	{ BVR, "object-flip-vertical" },
+	{ BLT, "object-rotate-left"     },
+	{ BRT, "object-rotate-right"    },
+	{ BVR, "object-flip-vertical"   },
 	{ BHR, "object-flip-horizontal" },
 
 	{ BIF, "dialog-information" },
@@ -99,7 +99,7 @@ const ButtonIcon button_icon_n[] =
 	{ BFT, "zoom-fit-best" },
 	{ BOR, "zoom-original" },
 	{ BMN, "zoom-out" },
-	{ BPL, "zoom-in" }
+	{ BPL, "zoom-in"  }
 };
 
 struct _ImageWin
@@ -633,8 +633,8 @@ static void image_win_bar_signal_all_buttons ( GtkButton *button, ImageWin *win 
 
 	if ( !win->file ) return;
 
-	fp funcs[] = { image_win_up, image_win_back, image_win_forward, image_win_play, image_win_left, image_win_right, 
-		image_win_vertical, image_win_horizont, image_win_info, image_win_fit, image_win_org, image_win_out, image_win_inp };
+	fp funcs[] = { NULL, image_win_back, image_win_forward, image_win_play, image_win_left, image_win_right, 
+		image_win_vertical, image_win_horizont, NULL, NULL, image_win_fit, image_win_org, image_win_out, image_win_inp };
 
 	if ( funcs[num] ) funcs[num] ( win );
 }

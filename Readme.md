@@ -18,6 +18,6 @@
 
 3. Build: ninja -C build
 
-4. Install: sudo ninja -C build install
+4. Install: ninja -C build install
 
-5. Uninstall: sudo ninja -C build uninstall
+5. Uninstall: ninja -C build uninstall
