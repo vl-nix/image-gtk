@@ -16,4 +16,3 @@
 G_DECLARE_FINAL_TYPE ( ImageWin, image_win, IMAGE, WIN, GtkWindow )
 
 ImageWin * image_win_new ( GFile *, ImageApp * );
-

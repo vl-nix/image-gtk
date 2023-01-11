@@ -51,4 +51,3 @@ ImageApp * image_app_new ( void )
 {
 	return g_object_new ( IMAGE_TYPE_APP, "application-id", "org.gtk.image-gtk", "flags", G_APPLICATION_HANDLES_OPEN, NULL );
 }
-

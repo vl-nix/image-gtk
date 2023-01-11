@@ -16,4 +16,3 @@
 G_DECLARE_FINAL_TYPE ( ImageApp, image_app, IMAGE, APP, GtkApplication )
 
 ImageApp * image_app_new ( void );
-
