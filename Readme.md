@@ -4,11 +4,13 @@
 * Drag and Drop: file, folder
 * Supported formats: PNG, JPEG, TIFF, TGA, GIF, SVG
 
+
 #### Dependencies
 
 * gcc
 * meson
 * libgtk 3.0 ( & dev )
+
 
 #### Build
 

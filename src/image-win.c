@@ -68,7 +68,7 @@ enum bt_enm
 {
 	BUP, BPR, BNX, BST,
 	BLT, BRT, BVR, BHR, 
-	BIF, BIA, 
+	BRM, BIF, BIA, 
 	BFT, BOR, BMN, BPL, 
 	BAL
 };
@@ -93,6 +93,7 @@ const ButtonIcon button_icon_n[] =
 	{ BVR, "object-flip-vertical"   },
 	{ BHR, "object-flip-horizontal" },
 
+	{ BRM, "remove" },
 	{ BIF, "dialog-information" },
 	{ BIA, "folder" },
 
@@ -123,6 +124,7 @@ struct _ImageWin
 	GtkScrolledWindow *swin_prw;
 
 	GtkButton *button_play;
+	GtkPopover *popover_time;
 
 	enum pb_enm pb_type_lr;
 	enum pb_enm pb_type_hv;
@@ -138,7 +140,6 @@ struct _ImageWin
 	gboolean icon_all;
 	gboolean original;
 };
-
 
 G_DEFINE_TYPE ( ImageWin, image_win, GTK_TYPE_WINDOW )
 
@@ -227,23 +228,16 @@ static void image_win_timeout_run ( G_GNUC_UNUSED GtkButton *button, ImageWin *w
 
 	GtkImage *image = (GtkImage *)gtk_button_get_image ( win->button_play );
 	gtk_image_set_from_icon_name ( image, "media-playback-stop", GTK_ICON_SIZE_MENU );
+
+	gtk_widget_set_visible ( GTK_WIDGET ( win->popover_time ), FALSE );
 }
 
-static void image_win_timeout ( ImageWin *win )
+static GtkPopover * image_win_pp_timeout ( ImageWin *win )
 {
-	GtkWindow *window = (GtkWindow *)gtk_window_new ( GTK_WINDOW_TOPLEVEL );
-	gtk_window_set_title ( window, "" );
-	gtk_window_set_modal ( window, TRUE );
-	gtk_window_set_transient_for ( window, GTK_WINDOW ( win ) );
-	gtk_window_set_icon_name ( window, "appointment-new" );
-	gtk_window_set_default_size ( window, 200, -1 );
-	gtk_window_set_position ( window, GTK_WIN_POS_CENTER_ON_PARENT );
+	GtkPopover *popover = (GtkPopover *)gtk_popover_new ( NULL );
 
-	GtkBox *v_box = (GtkBox *)gtk_box_new ( GTK_ORIENTATION_VERTICAL,  10 );
-	GtkBox *h_box = (GtkBox *)gtk_box_new ( GTK_ORIENTATION_HORIZONTAL, 5 );
-
-	gtk_widget_set_visible ( GTK_WIDGET ( v_box ), TRUE );
-	gtk_widget_set_visible ( GTK_WIDGET ( h_box ), TRUE );
+	GtkBox *h_box = (GtkBox *)gtk_box_new ( GTK_ORIENTATION_HORIZONTAL, 0 );
+	gtk_box_set_spacing ( h_box, 5 );
 
 	GtkSpinButton *spinbutton = image_win_create_spinbutton ( win->timeout, 1, 3600, 1, "Seconds" );
 	g_signal_connect ( spinbutton, "changed", G_CALLBACK ( image_win_changed_timeout ), win );
@@ -253,29 +247,32 @@ static void image_win_timeout ( ImageWin *win )
 
 	GtkButton *button = (GtkButton *)gtk_button_new_from_icon_name ( "gtk-apply", GTK_ICON_SIZE_MENU );
 	g_signal_connect ( button, "clicked", G_CALLBACK ( image_win_timeout_run ), win );
-	g_signal_connect_swapped ( button, "clicked", G_CALLBACK ( gtk_widget_destroy ), window );
 
 	gtk_widget_set_visible ( GTK_WIDGET ( button ), TRUE );
-	gtk_box_pack_start ( h_box, GTK_WIDGET ( button ), FALSE, FALSE, 0 );
+	gtk_box_pack_start ( h_box, GTK_WIDGET ( button ), TRUE, TRUE, 0 );
 
-	gtk_box_pack_end ( v_box, GTK_WIDGET ( h_box ), FALSE, FALSE, 0 );
+	gtk_container_add ( GTK_CONTAINER ( popover ), GTK_WIDGET ( h_box ) );
+	gtk_widget_set_visible ( GTK_WIDGET ( h_box ), TRUE );
 
-	gtk_container_set_border_width ( GTK_CONTAINER ( v_box ), 10 );
-	gtk_container_add   ( GTK_CONTAINER ( window ), GTK_WIDGET ( v_box ) );
-
-	gtk_window_present ( window );
-
-	gtk_widget_set_opacity ( GTK_WIDGET ( window ), gtk_widget_get_opacity ( GTK_WIDGET ( win ) ) );
+	return popover;
 }
 
 static void image_win_set_label ( int org_w, int org_h, int scale_w, int scale_h, ImageWin *win )
 {
+	GFileInfo *finfo = g_file_query_info ( win->file, "standard::size", 0, NULL, NULL );
+
+	uint64_t size = g_file_info_get_attribute_uint64 ( finfo, G_FILE_ATTRIBUTE_STANDARD_SIZE );
+
+	g_autofree char *gsize = g_format_size ( size );
+
 	double prc = (double)( scale_w * scale_h ) * 100 / ( org_w * org_h );
 
 	char text[256];
-	sprintf ( text, "%u%%  %d x %d", (uint)prc, org_w, org_h );
+	sprintf ( text, "%u%%  %d x %d  %s", (uint)prc, org_w, org_h, gsize );
 
 	gtk_label_set_text ( win->bar_label, text );
+
+	if ( finfo ) g_object_unref ( finfo );
 }
 
 static void image_win_set_image_plus_minus ( gboolean plus_minus, ImageWin *win )
@@ -563,7 +560,13 @@ static void image_win_run_autoplay ( ImageWin *win )
 
 static void image_win_play ( ImageWin *win )
 {
-	if ( win->src_play ) image_win_stop ( win ); else image_win_timeout ( win );
+	if ( win->src_play )
+		image_win_stop ( win );
+	else
+	{
+		gtk_popover_set_relative_to ( win->popover_time, GTK_WIDGET ( win->button_play ) );
+		gtk_popover_popup ( win->popover_time );
+	}
 }
 
 static void image_win_info ( ImageWin *win )
@@ -650,6 +653,20 @@ static void image_win_prw_ia ( GtkButton *button, ImageWin *win )
 	icon_update_pixbuf ( win );
 }
 
+static void image_win_remove ( ImageWin *win )
+{
+	image_win_forward ( win );
+
+	GFile *file = g_file_dup ( win->file );
+
+	GError *error = NULL;
+	g_file_trash ( file, NULL, &error );
+
+	if ( error ) { image_win_message_dialog ( " ", error->message, GTK_MESSAGE_ERROR, GTK_WINDOW ( win ) ); g_error_free ( error ); }
+
+	g_object_unref ( file );
+}
+
 static void image_win_bar_signal_all_buttons ( GtkButton *button, ImageWin *win )
 {
 	const char *name = gtk_widget_get_name ( GTK_WIDGET ( button ) );
@@ -669,7 +686,7 @@ static void image_win_bar_signal_all_buttons ( GtkButton *button, ImageWin *win 
 	if ( !win->file ) return;
 
 	fp funcs[] = { NULL, image_win_back, image_win_forward, image_win_play, image_win_left, image_win_right, image_win_vertical, image_win_horizont, 
-		NULL, NULL, image_win_fit, image_win_org, image_win_out, image_win_inp };
+		image_win_remove, NULL, NULL, image_win_fit, image_win_org, image_win_out, image_win_inp };
 
 	if ( funcs[num] ) funcs[num] ( win );
 }
@@ -1023,7 +1040,12 @@ static int icon_view_sort_func_a_z ( GtkTreeModel *model, GtkTreeIter *a, GtkTre
 	else if ( is_dir_a && !is_dir_b )
 		ret = -1;
 	else
-		ret = g_utf8_collate ( name_a, name_b );
+	{
+		g_autofree char *na = g_utf8_collate_key_for_filename ( name_a, -1 );
+		g_autofree char *nb = g_utf8_collate_key_for_filename ( name_b, -1 );
+
+		ret = g_strcmp0 ( na, nb );
+	}
 
 	return ret;
 }
@@ -1077,6 +1099,8 @@ static void image_win_create ( ImageWin *win )
 
 	win->bar_box = (GtkBox *)gtk_box_new ( GTK_ORIENTATION_HORIZONTAL, 0 );
 
+	win->popover_time = image_win_pp_timeout ( win );
+
 	image_win_bar_create ( win->bar_box, win );
 
 	gtk_widget_set_visible ( GTK_WIDGET ( win->bar_box ), TRUE );
@@ -1111,7 +1135,7 @@ static void image_win_create ( ImageWin *win )
 
 static void image_win_init ( ImageWin *win )
 {
-	win->dir = NULL;
+	win->dir  = NULL;
 	win->file = NULL;
 
 	win->config   = TRUE;
@@ -1134,10 +1158,11 @@ static void image_win_finalize ( GObject *object )
 {
 	ImageWin *win = IMAGE_WIN ( object );
 
-	if ( win->src_play ) g_source_remove ( win->src_play );
-
 	g_object_unref ( win->cursor );
 
+	if ( win->src_play ) g_source_remove ( win->src_play );
+
+	if ( win->dir  ) g_object_unref ( win->dir  );
 	if ( win->file ) g_object_unref ( win->file );
 
 	G_OBJECT_CLASS ( image_win_parent_class )->finalize ( object );
