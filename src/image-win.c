@@ -439,7 +439,10 @@ static void image_win_org ( ImageWin *win )
 
 static int _sort_func_list ( gconstpointer a, gconstpointer b )
 {
-	return g_utf8_collate ( a, b );
+	g_autofree char *na = g_utf8_collate_key_for_filename ( a, -1 );
+	g_autofree char *nb = g_utf8_collate_key_for_filename ( b, -1 );
+
+	return g_strcmp0 ( na, nb );
 }
 
 static char * image_win_list_sort_get_data ( const char *path, gboolean reverse, GList *list )
@@ -655,9 +658,9 @@ static void image_win_prw_ia ( GtkButton *button, ImageWin *win )
 
 static void image_win_remove ( ImageWin *win )
 {
-	image_win_forward ( win );
-
 	GFile *file = g_file_dup ( win->file );
+
+	image_win_forward ( win );
 
 	GError *error = NULL;
 	g_file_trash ( file, NULL, &error );
@@ -897,44 +900,53 @@ static void icon_item_activated ( GtkIconView *icon_view, GtkTreePath *tree_path
 	if ( file ) g_object_unref ( file );
 }
 
-static GdkPixbuf * icon_all_files_get_pixbuf ( const char *path, uint16_t icon_size )
+static inline GIcon * emblemed_icon ( const char *name, GIcon *gicon )
+{
+	GIcon *e_icon = g_themed_icon_new ( name );
+	GEmblem *emblem  = g_emblem_new ( e_icon );
+
+	GIcon *emblemed  = g_emblemed_icon_new ( gicon, emblem );
+
+	g_object_unref ( e_icon );
+	g_object_unref ( emblem );
+
+	return emblemed;
+}
+
+static GdkPixbuf * icon_get_pixbuf ( const char *path, gboolean is_link, uint16_t icon_size )
 {
 	GdkPixbuf *pixbuf = NULL;
 
 	GFile *file = g_file_new_for_path ( path );
 	GFileInfo *finfo = g_file_query_info ( file, "*", 0, NULL, NULL );
 
-	const char *mime_type = ( finfo ) ? g_file_info_get_content_type ( finfo ) : NULL;
+	const char *content_type = ( finfo ) ? g_file_info_get_content_type ( finfo ) : NULL;
 
-	if ( mime_type && g_str_has_prefix ( mime_type, "image" ) ) pixbuf = gdk_pixbuf_new_from_file_at_size ( path, icon_size, icon_size, NULL );
+	if ( content_type && g_str_has_prefix ( content_type, "image" ) ) pixbuf = gdk_pixbuf_new_from_file_at_size ( path, icon_size, icon_size, NULL );
 
-	if ( pixbuf == NULL )
+	if ( finfo && pixbuf == NULL )
 	{
-		GtkIconInfo *icon_info = gtk_icon_theme_lookup_by_gicon ( gtk_icon_theme_get_default (), ( finfo ) ? g_file_info_get_icon ( finfo ) : NULL, icon_size, GTK_ICON_LOOKUP_FORCE_SIZE );
+		GtkIconInfo *icon_info = NULL;
+		GIcon *emblemed = NULL, *unknown = NULL, *gicon = g_file_info_get_icon ( finfo );
 
-		pixbuf = ( icon_info ) ? gtk_icon_info_load_icon ( icon_info, NULL ) : NULL;
+		if ( is_link )
+		{
+			if ( g_str_has_prefix ( content_type, "inode/symlink" ) ) unknown = g_themed_icon_new ( "unknown" );
 
+			emblemed = ( unknown ) ? emblemed_icon ( "error", unknown ) : emblemed_icon ( "emblem-symbolic-link", gicon );
+		}
+
+		icon_info = gtk_icon_theme_lookup_by_gicon ( gtk_icon_theme_get_default (), ( is_link ) ? emblemed : gicon, icon_size, GTK_ICON_LOOKUP_FORCE_REGULAR );
+
+		if ( icon_info ) pixbuf = gtk_icon_info_load_icon ( icon_info, NULL );
+
+		if ( unknown ) g_object_unref ( unknown );
+		if ( emblemed ) g_object_unref ( emblemed );
 		if ( icon_info ) g_object_unref ( icon_info );
 	}
 
 	if ( finfo ) g_object_unref ( finfo );
 	if ( file  ) g_object_unref ( file  );
-
-	return pixbuf;
-}
-
-static GdkPixbuf * icon_image_get_pixbuf ( const char *path, uint16_t icon_size )
-{
-	GdkPixbuf *pixbuf = NULL;
-
-	const char *formats[] = { ".png", ".gif", ".svg", ".jpeg", ".jpg", ".tiff", ".tga" };
-
-	g_autofree char *name_down = g_utf8_strdown ( path, -1 );
-
-	uint8_t c = 0; for ( c = 0; c < G_N_ELEMENTS ( formats ); c++ )
-	{
-		if ( name_down && g_str_has_suffix ( name_down, formats[c] ) ) { pixbuf = gdk_pixbuf_new_from_file_at_size ( path, icon_size, icon_size, NULL ); break; }
-	}
 
 	return pixbuf;
 }
@@ -953,12 +965,11 @@ static void icon_update_pixbuf ( ImageWin *win )
 	for ( valid = gtk_tree_model_get_iter_first ( model, &iter ); valid; valid = gtk_tree_model_iter_next ( model, &iter ) )
 	{
 		char *path = NULL;
-		gboolean is_dir = FALSE;
-		gtk_tree_model_get ( model, &iter, COL_IS_DIR, &is_dir, COL_PATH, &path, -1 );
+		gboolean is_dir = FALSE, is_slk = FALSE;
+		gtk_tree_model_get ( model, &iter, COL_PATH, &path, COL_IS_DIR, &is_dir, COL_IS_LINK, &is_slk, -1 );
 
-		GdkPixbuf *pixbuf = ( win->icon_all ) ? icon_all_files_get_pixbuf ( path, win->icon_size ) : icon_image_get_pixbuf ( path, win->icon_size );
-
-		if ( !pixbuf ) pixbuf = gtk_icon_theme_load_icon ( itheme, ( is_dir ) ? icon_name_d : icon_name_f, win->icon_size, GTK_ICON_LOOKUP_FORCE_SIZE, NULL );
+		GdkPixbuf *pixbuf = ( win->icon_all ) ? icon_get_pixbuf ( path, is_slk, win->icon_size )
+			: gtk_icon_theme_load_icon ( itheme, ( is_dir ) ? icon_name_d : icon_name_f, win->icon_size, GTK_ICON_LOOKUP_FORCE_SIZE, NULL );
 
 		if ( pixbuf ) gtk_list_store_set ( GTK_LIST_STORE ( model ), &iter, COL_IS_PIXBUF, TRUE, COL_PIXBUF, pixbuf, -1 );
 
@@ -996,9 +1007,8 @@ static void icon_open_location ( const char *path_dir, ImageWin *win )
 			gboolean is_dir = g_file_test ( path, G_FILE_TEST_IS_DIR );
 			gboolean is_slk = g_file_test ( path, G_FILE_TEST_IS_SYMLINK );
 
-			GdkPixbuf *pixbuf = ( win->icon_all ) ? icon_all_files_get_pixbuf ( path, win->icon_size ) : icon_image_get_pixbuf ( path, win->icon_size );
-
-			if ( !pixbuf ) pixbuf = gtk_icon_theme_load_icon ( itheme, ( is_dir ) ? icon_name_d : icon_name_f, win->icon_size, GTK_ICON_LOOKUP_FORCE_SIZE, NULL );
+			GdkPixbuf *pixbuf = ( win->icon_all ) ? icon_get_pixbuf ( path, is_slk, win->icon_size )
+				: gtk_icon_theme_load_icon ( itheme, ( is_dir ) ? icon_name_d : icon_name_f, win->icon_size, GTK_ICON_LOOKUP_FORCE_SIZE, NULL );
 
 				gtk_list_store_append ( GTK_LIST_STORE ( model ), &iter );
 
