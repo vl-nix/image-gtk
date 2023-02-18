@@ -1,5 +1,5 @@
 /*
-* Copyright 2022 Stepan Perun
+* Copyright 2023 Stepan Perun
 * This program is free software.
 *
 * License: Gnu General Public License GPL-3
@@ -51,3 +51,4 @@ ImageApp * image_app_new ( void )
 {
 	return g_object_new ( IMAGE_TYPE_APP, "application-id", "org.gtk.image-gtk", "flags", G_APPLICATION_HANDLES_OPEN, NULL );
 }
+

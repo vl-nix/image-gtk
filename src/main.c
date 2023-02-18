@@ -1,5 +1,5 @@
 /*
-* Copyright 2022 Stepan Perun
+* Copyright 2023 Stepan Perun
 * This program is free software.
 *
 * License: Gnu General Public License GPL-3

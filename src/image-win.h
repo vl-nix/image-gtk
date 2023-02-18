@@ -1,5 +1,5 @@
 /*
-* Copyright 2022 Stepan Perun
+* Copyright 2023 Stepan Perun
 * This program is free software.
 *
 * License: Gnu General Public License GPL-3
@@ -16,3 +16,4 @@
 G_DECLARE_FINAL_TYPE ( ImageWin, image_win, IMAGE, WIN, GtkWindow )
 
 ImageWin * image_win_new ( GFile *, ImageApp * );
+
